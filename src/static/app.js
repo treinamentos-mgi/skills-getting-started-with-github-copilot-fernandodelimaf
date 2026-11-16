@@ -24,8 +24,91 @@ document.addEventListener("DOMContentLoaded", () => {
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
-          <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <p><strong>Availability:</strong> <span class="availability">${spotsLeft} spots left</span></p>
         `;
+
+        const participantsSection = document.createElement("div");
+        participantsSection.className = "participants";
+        const participantsHeading = document.createElement("h5");
+        participantsHeading.textContent = "Participants";
+        participantsSection.appendChild(participantsHeading);
+
+        if (details.participants.length > 0) {
+          const participantsList = document.createElement("ul");
+          details.participants.forEach((email) => {
+            const participantItem = document.createElement("li");
+
+            const participantEmail = document.createElement("span");
+            participantEmail.textContent = email;
+            participantItem.appendChild(participantEmail);
+
+            const removeButton = document.createElement("button");
+            removeButton.type = "button";
+            removeButton.className = "remove-participant";
+            removeButton.setAttribute("aria-label", `Cancel registration for ${email} in ${name}`);
+            removeButton.title = "Cancel registration";
+
+            const trashIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            trashIcon.setAttribute("viewBox", "0 0 24 24");
+            trashIcon.setAttribute("aria-hidden", "true");
+            trashIcon.setAttribute("focusable", "false");
+            trashIcon.innerHTML = '<path d="M4 7h16M10 11v6m4-6v6M5 7l1 14h12l1-14M9 7V4h6v3" />';
+            removeButton.appendChild(trashIcon);
+
+            removeButton.addEventListener("click", async () => {
+              removeButton.disabled = true;
+
+              try {
+                const response = await fetch(
+                  `/activities/${encodeURIComponent(name)}/signup?email=${encodeURIComponent(email)}`,
+                  { method: "DELETE" }
+                );
+                const result = await response.json();
+
+                if (!response.ok) {
+                  throw new Error(result.detail || "Failed to cancel registration.");
+                }
+
+                const participantIndex = details.participants.indexOf(email);
+                if (participantIndex !== -1) {
+                  details.participants.splice(participantIndex, 1);
+                }
+                participantItem.remove();
+                activityCard.querySelector(".availability").textContent =
+                  `${details.max_participants - details.participants.length} spots left`;
+
+                if (details.participants.length === 0) {
+                  participantsList.remove();
+                  const emptyMessage = document.createElement("p");
+                  emptyMessage.className = "empty-participants";
+                  emptyMessage.textContent = "No participants yet.";
+                  participantsSection.appendChild(emptyMessage);
+                }
+
+                messageDiv.textContent = result.message;
+                messageDiv.className = "success";
+                messageDiv.classList.remove("hidden");
+              } catch (error) {
+                removeButton.disabled = false;
+                messageDiv.textContent = error.message || "Failed to cancel registration.";
+                messageDiv.className = "error";
+                messageDiv.classList.remove("hidden");
+                console.error("Error canceling registration:", error);
+              }
+            });
+
+            participantItem.appendChild(removeButton);
+            participantsList.appendChild(participantItem);
+          });
+          participantsSection.appendChild(participantsList);
+        } else {
+          const emptyMessage = document.createElement("p");
+          emptyMessage.className = "empty-participants";
+          emptyMessage.textContent = "No participants yet.";
+          participantsSection.appendChild(emptyMessage);
+        }
+
+        activityCard.appendChild(participantsSection);
 
         activitiesList.appendChild(activityCard);
 
